@@ -84,11 +84,6 @@
         }
         .btn-reimprimir:hover { background: #4a4cd4; transform: scale(1.05); }
 
-        .tipo-nuevo { color: var(--nuevo-color); }
-        .tipo-abono { color: var(--abono-color); }
-        .tipo-cancelado { color: var(--cancelado-color); }
-
-        /* Iframe para impresión invisible */
         #iframeImpresion { position: absolute; width: 0; height: 0; border: none; visibility: hidden; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
@@ -180,7 +175,7 @@
     }
 
     async function reiniciarHistorial() {
-        if(confirm("¿Estás seguro de limpiar el historial de hoy?")) {
+        if(confirm("¿Estás seguro de limpiar el historial?")) {
             const snapshot = await db.collection('historial_impresiones').where('fecha', '==', hoy).get();
             const batch = db.batch();
             snapshot.docs.forEach(doc => batch.delete(doc.ref));
@@ -203,6 +198,11 @@
         let ticketBody = "";
         
         if (item.tipo === 'nuevo') {
+            // LÓGICA DE RECUPERACIÓN O CÁLCULO DEL VALOR DE LA CUOTA
+            const cuotasNum = parseInt(item.cuotas) || 1;
+            const totalPagar = parseFloat(item.total) || parseFloat(item.saldo) || 0;
+            const valorCuotaFinal = item.valorCuota || (totalPagar / cuotasNum);
+
             ticketBody = `
                 <div class="bold">** REIMPRESIÓN **</div>
                 <div class="bold">NUEVO PRÉSTAMO</div>
@@ -215,14 +215,12 @@
                 <div class="row"><span>MONTO:</span><span>${formatear(item.monto)}</span></div>
                 <div class="row"><span>INTERÉS:</span><span>${item.porcentaje || '20'}%</span></div>
                 <div class="row"><span>CUOTAS:</span><span>${item.cuotas || '--'}</span></div>
+                <div class="row"><span>VALOR CUOTA:</span><span>${formatear(valorCuotaFinal)}</span></div>
                 <div class="sep">${cf.separator}</div>
                 <div class="row bold"><span>ENTREGADO:</span><span>${formatear(item.monto * 0.95)}</span></div>
                 <div class="box">
                     <div class="bold">TOTAL A PAGAR</div>
-                    <div class="bold" style="font-size: 1.2em;">${item.total || formatear(item.saldo)}</div>
-                    <div class="bold" style="border-top: 1px dashed #000; margin-top: 5px; padding-top: 5px;">
-                        VALOR CUOTA: ${formatear(item.valorCuota)}
-                    </div>
+                    <div class="bold" style="font-size: 1.2em;">${formatear(totalPagar)}</div>
                 </div>
             `;
         } else {
