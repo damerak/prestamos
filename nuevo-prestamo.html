@@ -24,6 +24,7 @@
         .total-label { color: var(--accent); font-weight: 600; font-size: 1.2rem; }
         .total-amount { font-size: 1.4rem; font-weight: 600; color: #fff; }
         button { width: 100%; margin-top: 20px; padding: 16px; background-color: var(--accent); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.3s; }
+        button:disabled { background-color: #444; cursor: not-allowed; }
         #iframeImpresion { position: absolute; width: 0; height: 0; border: none; visibility: hidden; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
     </style>
@@ -63,6 +64,7 @@
     const inputCuotas = document.getElementById('cuotas');
     const txtCuota = document.getElementById('txtCuota');
     const txtTotal = document.getElementById('txtTotal');
+    const btnGuardar = document.getElementById('btnGuardar');
 
     async function cargarClientes() {
         const snapshot = await db.collection('clientes').get();
@@ -110,12 +112,46 @@
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const prestamo = { id: Date.now().toString(), cliente: selectCliente.value, monto: parseFloat(inputMonto.value.replace(/\./g, "")), porcentaje: inputPorcentaje.value, cuotas: inputCuotas.value, total: txtTotal.textContent, saldo: parseFloat(txtTotal.textContent.replace(/[^0-9]/g,"")), fecha: new Date().toLocaleDateString() };
-        await db.collection('prestamos').doc(prestamo.id).set(prestamo);
-        await db.collection('historial_impresiones').add({...prestamo, tipo: 'nuevo', hora: new Date().toLocaleTimeString()});
-        imprimirNuevoPrestamo(prestamo);
-        setTimeout(() => window.location.href = 'index.html', 2000);
+        btnGuardar.disabled = true;
+        btnGuardar.textContent = "Guardando...";
+
+        const prestamo = { 
+            id: Date.now().toString(), 
+            cliente: selectCliente.value, 
+            monto: parseFloat(inputMonto.value.replace(/\./g, "")), 
+            porcentaje: inputPorcentaje.value, 
+            cuotas: inputCuotas.value, 
+            total: txtTotal.textContent, 
+            saldo: parseFloat(txtTotal.textContent.replace(/[^0-9]/g,"")), 
+            fecha: new Date().toLocaleDateString() 
+        };
+
+        try {
+            await db.collection('prestamos').doc(prestamo.id).set(prestamo);
+            await db.collection('historial_impresiones').add({...prestamo, tipo: 'nuevo', hora: new Date().toLocaleTimeString()});
+            
+            // Imprimir factura
+            imprimirNuevoPrestamo(prestamo);
+
+            // RESET DEL FORMULARIO Y UI
+            form.reset();
+            document.getElementById('txtBono').textContent = "$0";
+            document.getElementById('txtEntregado').textContent = "$0";
+            txtCuota.textContent = "$0";
+            txtTotal.textContent = "$0";
+            document.getElementById('txtFecha').textContent = new Date().toLocaleDateString();
+            
+            btnGuardar.disabled = false;
+            btnGuardar.textContent = "Guardar e Imprimir";
+            alert("✅ Préstamo registrado con éxito.");
+
+        } catch (error) {
+            alert("Error al guardar.");
+            btnGuardar.disabled = false;
+            btnGuardar.textContent = "Guardar e Imprimir";
+        }
     });
+
     window.onload = cargarClientes;
 </script>
 </body>
