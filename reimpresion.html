@@ -88,7 +88,7 @@
         .tipo-abono { color: var(--abono-color); }
         .tipo-cancelado { color: var(--cancelado-color); }
 
-        /* Iframe para impresión */
+        /* Iframe para impresión invisible */
         #iframeImpresion { position: absolute; width: 0; height: 0; border: none; visibility: hidden; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
@@ -124,7 +124,6 @@
 <iframe id="iframeImpresion"></iframe>
 
 <script>
-    // Configuración de Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyCarhhvBeuECGQL_6VU-huoK0hqu3q_lZ4",
         authDomain: "prestamos-ba860.firebaseapp.com",
@@ -176,23 +175,17 @@
                 else dC.appendChild(card);
             });
         } catch (error) {
-            console.error("Error cargando historial:", error);
-            dN.innerHTML = `<p style='color:var(--danger);'>Error de conexión: ${error.message}</p>`;
+            dN.innerHTML = `<p style='color:var(--danger);'>Error de conexión</p>`;
         }
     }
 
     async function reiniciarHistorial() {
-        if(confirm("¿Estás seguro de limpiar el historial de hoy en la base de datos?")) {
-            try {
-                const snapshot = await db.collection('historial_impresiones').where('fecha', '==', hoy).get();
-                const batch = db.batch();
-                snapshot.docs.forEach(doc => batch.delete(doc.ref));
-                await batch.commit();
-                alert("Historial del día eliminado.");
-                renderizarHistorial();
-            } catch (error) {
-                alert("No se pudo limpiar el historial.");
-            }
+        if(confirm("¿Estás seguro de limpiar el historial de hoy?")) {
+            const snapshot = await db.collection('historial_impresiones').where('fecha', '==', hoy).get();
+            const batch = db.batch();
+            snapshot.docs.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            renderizarHistorial();
         }
     }
 
@@ -227,6 +220,9 @@
                 <div class="box">
                     <div class="bold">TOTAL A PAGAR</div>
                     <div class="bold" style="font-size: 1.2em;">${item.total || formatear(item.saldo)}</div>
+                    <div class="bold" style="border-top: 1px dashed #000; margin-top: 5px; padding-top: 5px;">
+                        VALOR CUOTA: ${formatear(item.valorCuota)}
+                    </div>
                 </div>
             `;
         } else {
@@ -274,7 +270,7 @@
                 ${ticketBody}
                 <div class="sep">${cf.separator}</div>
                 <div style="margin-top:10px;">*** Gracias por su confianza ***</div>
-                <div style="height:40px">.</div>
+                <div style="height:50px">.</div>
             </body>
             </html>
         `);
@@ -287,13 +283,11 @@
     }
 
     function getClase(t) { return t === 'nuevo' ? 'tipo-nuevo' : (t === 'abono' ? 'tipo-abono' : 'tipo-cancelado'); }
-    
     function formatear(n) { 
         if(!n) return "$0";
         let valor = typeof n === 'string' ? parseFloat(n.replace(/[^0-9.-]+/g,"")) : n;
         return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(valor || 0); 
     }
-
     window.onload = renderizarHistorial;
 </script>
 </body>
