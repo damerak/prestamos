@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Préstamos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Scripts de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root { --bg-color: #121420; --card-bg: #1b1f2d; --input-bg: #24293a; --text-color: #e0e0e0; --accent-color: #4ade80; --accent-hover: #38b263; --border-color: #2e344a; --danger: #ef4444; --warning: #facc15; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); padding: 40px 20px; }
+        .container { width: 100%; max-width: 1000px; margin: 0 auto; animation: fadeIn 0.6s ease; }
+        
+        .btn-regresar { display: inline-block; margin-bottom: 20px; color: #5d5fef; text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: 0.3s; }
+        .btn-regresar:hover { color: white; transform: translateX(-5px); }
+
+        h2 { font-size: 1.5rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 25px; color: #fff; font-weight: 600; text-align: center; }
+        
+        .header-actions { display: flex; gap: 15px; margin-bottom: 30px; }
+        #buscador { flex: 1; padding: 15px 20px; background-color: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: white; outline: none; }
+
+        .btn-vaciar { padding: 10px 20px; background-color: var(--danger); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; font-size: 0.8rem; }
+        .btn-vaciar:hover { background-color: #b91c1c; transform: scale(1.02); }
+
+        .loan-card { background-color: var(--card-bg); border-radius: 12px; margin-bottom: 15px; border: 1px solid var(--border-color); overflow: hidden; }
+        .loan-header { padding: 20px; background-color: #24293a; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.3s; }
+        .loan-header:hover { background-color: #2e344a; }
+        
+        .client-info { display: flex; flex-direction: column; }
+        .client-name { font-weight: 600; color: var(--accent-color); font-size: 1.1rem; }
+        .finish-date { font-size: 0.8rem; color: #8b8ea1; }
+
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; background: rgba(74, 222, 128, 0.1); color: var(--accent-color); border: 1px solid var(--accent-color); }
+
+        .loan-content { display: none; padding: 20px; background-color: #1b1f2d; border-top: 1px solid var(--border-color); }
+        .loan-card.active .loan-content { display: block; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+        th { text-align: left; padding: 12px; color: #8b8ea1; border-bottom: 2px solid var(--border-color); text-transform: uppercase; font-size: 0.7rem; }
+        td { padding: 12px; border-bottom: 1px solid var(--border-color); }
+        
+        .monto-pagado { color: var(--accent-color); font-weight: 600; }
+        .badge-tipo { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; }
+        .tipo-abono { background: #3b82f6; color: white; }
+        .tipo-final { background: var(--accent-color); color: #121420; font-weight: bold; }
+
+        .empty-state { text-align: center; padding: 50px; color: #8b8ea1; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <a href="index.html" class="btn-regresar">← Volver al Inicio</a>
+    <h2>Historial de Préstamos Finalizados</h2>
+    
+    <div class="header-actions">
+        <input type="text" id="buscador" placeholder="Buscar por cliente o fecha..." oninput="renderizarHistorial()">
+        <button class="btn-vaciar" onclick="vaciarHistorial()">Vaciar Historial</button>
+    </div>
+
+    <div id="listaHistorial">
+        <div class="empty-state">Cargando historial desde la nube...</div>
+    </div>
+</div>
+
+<script>
+    // --- CONFIGURACIÓN DE FIREBASE ---
+    const firebaseConfig = {
+	apiKey: "AIzaSyCarhhvBeuECGQL_6VU-huoK0hqu3q_lZ4",
+        authDomain: "prestamos-ba860.firebaseapp.com",
+        projectId: "prestamos-ba860",
+        storageBucket: "prestamos-ba860.firebasestorage.app",
+        messagingSenderId: "854942370995",
+        appId: "1:854942370995:web:06aba4cd63c03d12fb34c6"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Función para borrar el historial en Firebase
+    async function vaciarHistorial() {
+        if (confirm("¿Estás seguro de vaciar todo el historial de préstamos finalizados en la nube?")) {
+            try {
+                const snapshot = await db.collection('historial_impresiones').get();
+                const batch = db.batch();
+                snapshot.docs.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+                alert("Historial vaciado correctamente.");
+                renderizarHistorial();
+            } catch (error) {
+                console.error("Error al vaciar historial:", error);
+                alert("Error al intentar vaciar los datos.");
+            }
+        }
+    }
+
+    async function procesarDatos() {
+        try {
+            // Obtenemos los datos de Firebase
+            const snapshotPagos = await db.collection('historial_impresiones').orderBy('fecha', 'asc').get();
+            const snapshotClientes = await db.collection('clientes').get();
+
+            const historialPagos = snapshotPagos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const clientes = snapshotClientes.docs.map(doc => doc.data());
+
+            const pagosPorCliente = historialPagos.reduce((acc, pago) => {
+                if (!acc[pago.cliente]) acc[pago.cliente] = [];
+                acc[pago.cliente].push(pago);
+                return acc;
+            }, {});
+
+            let prestamosFinalizados = [];
+
+            for (const cliente in pagosPorCliente) {
+                let pagos = pagosPorCliente[cliente];
+                let grupoActual = [];
+                
+                pagos.forEach(pago => {
+                    grupoActual.push(pago);
+                    // Lógica para detectar fin de préstamo (saldo 0)
+                    if (parseFloat(pago.saldo) === 0) {
+                        const datosCliente = clientes.find(c => c.nombres === cliente) || { cedula: "N/A", barrio: "N/A" };
+                        
+                        prestamosFinalizados.push({
+                            cliente: cliente,
+                            cedula: datosCliente.cedula,
+                            barrio: datosCliente.barrio,
+                            fechaFinalizacion: pago.fecha,
+                            movimientos: [...grupoActual],
+                            idUnico: pago.id
+                        });
+                        grupoActual = [];
+                    }
+                });
+            }
+            return prestamosFinalizados.reverse();
+        } catch (error) {
+            console.error("Error procesando datos de Firebase:", error);
+            return [];
+        }
+    }
+
+    async function renderizarHistorial() {
+        const contenedor = document.getElementById('listaHistorial');
+        const filtro = document.getElementById('buscador').value.toLowerCase();
+        
+        // Llamada asíncrona a la base de datos
+        const prestamos = await procesarDatos();
+        
+        contenedor.innerHTML = "";
+
+        if (prestamos.length === 0) {
+            contenedor.innerHTML = `<div class="empty-state">No hay registros en el historial.</div>`;
+            return;
+        }
+
+        const prestamosFiltrados = prestamos.filter(p => 
+            p.cliente.toLowerCase().includes(filtro) || 
+            p.fechaFinalizacion.includes(filtro)
+        );
+
+        if (prestamosFiltrados.length === 0) {
+            contenedor.innerHTML = `<div class="empty-state">No se encontraron resultados para tu búsqueda.</div>`;
+            return;
+        }
+
+        prestamosFiltrados.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'loan-card';
+            
+            card.innerHTML = `
+                <div class="loan-header" onclick="this.parentElement.classList.toggle('active')">
+                    <div class="client-info">
+                        <span class="client-name">${p.cliente}</span>
+                        <span class="finish-date">Finalizado el: ${p.fechaFinalizacion}</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="status-badge">PAGADO TOTAL</div>
+                    </div>
+                </div>
+                <div class="loan-content">
+                    <div style="margin-bottom: 15px; font-size: 0.85rem; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div><strong>Cédula:</strong> ${p.cedula}</div>
+                        <div><strong>Barrio:</strong> ${p.barrio}</div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha / Hora</th>
+                                <th>Tipo</th>
+                                <th>Monto Pagado</th>
+                                <th>Saldo Restante</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${p.movimientos.map(m => `
+                                <tr>
+                                    <td>${m.fecha}<br><small style="color:#8b8ea1">${m.hora}</small></td>
+                                    <td><span class="badge-tipo ${m.tipo === 'cancelacion' ? 'tipo-final' : 'tipo-abono'}">${m.tipo.toUpperCase()}</span></td>
+                                    <td class="monto-pagado">${formatear(m.monto)}</td>
+                                    <td>${formatear(m.saldo)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            contenedor.appendChild(card);
+        });
+    }
+
+    function formatear(n) {
+        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+    }
+
+    // Carga inicial
+    window.onload = renderizarHistorial;
+</script>
+
+</body>
+</html>

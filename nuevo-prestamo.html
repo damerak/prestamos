@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Préstamo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <!-- FIREBASE SDKS -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #121420;
+            --input-bg: #1b1f2d;
+            --input-border: #2e344a;
+            --text-main: #e0e0e0;
+            --text-dim: #8b8ea1;
+            --accent: #5d5fef;
+            --accent-hover: #4a4cd4;
+            --success: #4ade80;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        
+        /* Botón de Volver */
+        .btn-regresar {
+            display: inline-block;
+            margin-bottom: 15px;
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: 0.3s;
+        }
+        .btn-regresar:hover { color: var(--accent); }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .card { width: 100%; max-width: 600px; animation: fadeIn 0.6s ease-out; }
+        h2 { font-size: 1.1rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; color: #b18cf0; font-weight: 600; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .full-width { grid-column: span 2; }
+        input, select { width: 100%; padding: 12px 15px; background-color: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: white; font-size: 1rem; outline: none; transition: all 0.3s ease; }
+        input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(93, 95, 239, 0.15); }
+        
+        .summary-box { margin-top: 25px; background-color: #0b0d14; padding: 20px; border-radius: 8px; border-bottom: 2px solid var(--input-border); }
+        .summary-line { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.85rem; color: var(--text-dim); text-transform: uppercase; }
+        .summary-line span:last-child { color: var(--text-main); font-weight: 500; }
+        .entregado-val { color: var(--success) !important; font-weight: bold !important; }
+        
+        .total-row { margin-top: 15px; padding-top: 15px; border-top: 1px solid #2e344a; display: flex; justify-content: space-between; align-items: center; }
+        .total-label { color: var(--accent); font-weight: 600; font-size: 1.2rem; }
+        .total-amount { font-size: 1.4rem; font-weight: 600; color: #fff; }
+        
+        button { width: 100%; margin-top: 20px; padding: 16px; background-color: var(--accent); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: var(--accent-hover); }
+        button:disabled { background-color: #444; cursor: not-allowed; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+<div class="card">
+    <a href="index.html" class="btn-regresar">← Volver al Inicio</a>
+    <h2>Crear Préstamo</h2>
+    <form id="prestamoForm">
+        <div class="form-grid">
+            <select id="selectCliente" class="full-width" required>
+                <option value="">Seleccionar Cliente...</option>
+            </select>
+            <input type="text" id="monto" placeholder="Monto (Ej: 600.000)" required>
+            <input type="number" id="porcentaje" placeholder="%" value="20" required>
+            <input type="number" id="cuotas" class="full-width" placeholder="Número de cuotas" required>
+        </div>
+        <div class="summary-box">
+            <div class="summary-line"><span>Fecha Inicio:</span><span id="txtFecha">-</span></div>
+            <div class="summary-line"><span>Bono Rifa (5%):</span><span id="txtBono">$0</span></div>
+            <div class="summary-line"><span>ENTREGADO AL CLIENTE:</span><span id="txtEntregado" class="entregado-val">$0</span></div>
+            <div class="summary-line"><span>Valor Cuota:</span><span id="txtCuota">$0</span></div>
+            <div class="total-row">
+                <span class="total-label">TOTAL A PAGAR:</span>
+                <span class="total-amount" id="txtTotal">$0</span>
+            </div>
+        </div>
+        <button type="submit" id="btnGuardar">Guardar e Imprimir</button>
+    </form>
+</div>
+
+<script>
+    // --- CONFIGURACIÓN DE FIREBASE (REEMPLAZA CON TUS DATOS) ---
+    const firebaseConfig = {
+	apiKey: "AIzaSyCarhhvBeuECGQL_6VU-huoK0hqu3q_lZ4",
+        authDomain: "prestamos-ba860.firebaseapp.com",
+        projectId: "prestamos-ba860",
+        storageBucket: "prestamos-ba860.firebasestorage.app",
+        messagingSenderId: "854942370995",
+        appId: "1:854942370995:web:06aba4cd63c03d12fb34c6"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const form = document.getElementById('prestamoForm');
+    const selectCliente = document.getElementById('selectCliente');
+    const inputMonto = document.getElementById('monto');
+    const inputPorcentaje = document.getElementById('porcentaje');
+    const inputCuotas = document.getElementById('cuotas');
+    const txtFecha = document.getElementById('txtFecha');
+    const txtBono = document.getElementById('txtBono');
+    const txtEntregado = document.getElementById('txtEntregado');
+    const txtCuota = document.getElementById('txtCuota');
+    const txtTotal = document.getElementById('txtTotal');
+    const btnGuardar = document.getElementById('btnGuardar');
+
+    async function cargarClientes() {
+        // Primero cargamos de localStorage para inmediatez
+        const clientesLocal = JSON.parse(localStorage.getItem('clientes')) || [];
+        llenarSelect(clientesLocal);
+
+        // Intentamos sincronizar desde Firebase
+        try {
+            const snapshot = await db.collection('clientes').get();
+            const clientesFB = [];
+            snapshot.forEach(doc => clientesFB.push(doc.data()));
+            
+            if (clientesFB.length > 0) {
+                localStorage.setItem('clientes', JSON.stringify(clientesFB));
+                llenarSelect(clientesFB);
+            }
+        } catch (error) {
+            console.error("Error al cargar clientes de Firebase:", error);
+        }
+        
+        txtFecha.textContent = new Date().toLocaleDateString();
+    }
+
+    function llenarSelect(clientes) {
+        selectCliente.innerHTML = '<option value="">Seleccionar Cliente...</option>';
+        clientes.forEach(c => {
+            let option = document.createElement('option');
+            option.value = c.nombres; option.textContent = c.nombres;
+            selectCliente.appendChild(option);
+        });
+    }
+
+    function calcular() {
+        let monto = parseFloat(inputMonto.value.replace(/\./g, "")) || 0;
+        let porc = parseFloat(inputPorcentaje.value) || 0;
+        let cuotas = parseInt(inputCuotas.value) || 0;
+        let total = monto + (monto * (porc / 100));
+        let valorCuota = cuotas > 0 ? (total / cuotas) : 0;
+        txtBono.textContent = formatearCOP(monto * 0.05);
+        txtEntregado.textContent = formatearCOP(monto * 0.95);
+        txtCuota.textContent = formatearCOP(valorCuota);
+        txtTotal.textContent = formatearCOP(total);
+    }
+
+    inputMonto.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        calcular();
+    });
+    [inputPorcentaje, inputCuotas].forEach(el => el.addEventListener('input', calcular));
+
+    function formatearCOP(n) { return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n); }
+
+    function imprimirNuevoPrestamo(datos) {
+        const empresa = JSON.parse(localStorage.getItem('datosEmpresa')) || { nombre: "EMPRESA", telefono: "000", ciudad: "BOGOTA" };
+        const cf = JSON.parse(localStorage.getItem('ticketConfig')) || { 
+            width: 58, marginTop: 10, marginSide: 5, fontSize: 12, 
+            separator: "--------------------------------", bold: false 
+        };
+
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html>
+            <head>
+                <style>
+                    @page { margin: 0; }
+                    body { 
+                        width: ${cf.width}mm; margin: 0 auto; 
+                        padding: ${cf.marginTop}px ${cf.marginSide}px; 
+                        text-align: center; color: #000;
+                        font-family: 'Courier New', monospace;
+                        font-size: ${cf.fontSize}px;
+                        font-weight: ${cf.bold ? 'bold' : 'normal'};
+                        line-height: 1.2;
+                    }
+                    .bold { font-weight: bold; }
+                    .sep { margin: 5px 0; overflow: hidden; white-space: nowrap; }
+                    .row { display: flex; justify-content: space-between; }
+                    .box { border: 1px solid #000; padding: 5px; margin: 8px 0; }
+                </style>
+            </head>
+            <body>
+                <div class="bold">${empresa.nombre.toUpperCase()}</div>
+                <div>TEL: ${empresa.telefono}</div>
+                <div>${empresa.ciudad.toUpperCase()}</div>
+                <div class="sep">${cf.separator}</div>
+                <div class="bold">NUEVO PRÉSTAMO</div>
+                <div class="sep">${cf.separator}</div>
+                <div style="text-align:left">
+                    FECHA: ${new Date().toLocaleDateString()}<br>
+                    CLIENTE: <span class="bold">${datos.cliente.toUpperCase()}</span>
+                </div>
+                <div class="sep">${cf.separator}</div>
+                <div class="row"><span>MONTO:</span><span>${formatearCOP(datos.monto)}</span></div>
+                <div class="row"><span>INTERÉS:</span><span>${datos.porcentaje}%</span></div>
+                <div class="row"><span>CUOTAS:</span><span>${datos.cuotas}</span></div>
+                <div class="sep">${cf.separator}</div>
+                <div class="row bold"><span>ENTREGADO:</span><span>${formatearCOP(datos.monto * 0.95)}</span></div>
+                <div class="box">
+                    <div class="bold">TOTAL A PAGAR</div>
+                    <div class="bold" style="font-size: 1.2em;">${datos.total}</div>
+                </div>
+                <div class="bold">VALOR CUOTA: ${txtCuota.textContent}</div>
+                <div class="sep">${cf.separator}</div>
+                <div style="margin-top:10px;">*** Gracias por su confianza ***</div>
+                <script>window.onload = function() { window.print(); setTimeout(() => { window.close(); }, 500); }<\/script>
+            </body>
+            </html>
+        `);
+        win.document.close();
+    }
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        btnGuardar.disabled = true;
+        btnGuardar.textContent = "Guardando...";
+
+        const montoReal = inputMonto.value.replace(/\./g, "");
+        
+        const prestamo = { 
+            id: Date.now().toString(), 
+            cliente: selectCliente.value, 
+            monto: parseFloat(montoReal), 
+            porcentaje: inputPorcentaje.value, 
+            cuotas: inputCuotas.value, 
+            total: txtTotal.textContent, 
+            saldo: parseFloat(txtTotal.textContent.replace(/[^0-9]/g,"")), 
+            fecha: new Date().toLocaleDateString(),
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        const log = { 
+            ...prestamo, 
+            tipo: 'nuevo', 
+            hora: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) 
+        };
+
+        try {
+            // 1. Guardar en Firebase
+            await db.collection('prestamos').doc(prestamo.id).set(prestamo);
+            await db.collection('historial_impresiones').add(log);
+
+            // 2. Guardar en LocalStorage (Mantener compatibilidad offline/actual)
+            let historial = JSON.parse(localStorage.getItem('historial_impresiones')) || [];
+            historial.push(log);
+            localStorage.setItem('historial_impresiones', JSON.stringify(historial));
+
+            const prestamos = JSON.parse(localStorage.getItem('prestamos')) || [];
+            prestamos.push(prestamo);
+            localStorage.setItem('prestamos', JSON.stringify(prestamos));
+
+            // 3. Imprimir
+            imprimirNuevoPrestamo(prestamo);
+
+            // 4. Redireccionar
+            window.location.href = 'index.html';
+
+        } catch (error) {
+            console.error("Error al guardar:", error);
+            alert("Error al conectar con Firebase. El préstamo se guardará localmente.");
+            
+            // Fallback: Si falla Firebase, igual guardamos local e imprimimos
+            let historial = JSON.parse(localStorage.getItem('historial_impresiones')) || [];
+            historial.push(log);
+            localStorage.setItem('historial_impresiones', JSON.stringify(historial));
+            const prestamos = JSON.parse(localStorage.getItem('prestamos')) || [];
+            prestamos.push(prestamo);
+            localStorage.setItem('prestamos', JSON.stringify(prestamos));
+            imprimirNuevoPrestamo(prestamo);
+            window.location.href = 'index.html';
+        }
+    });
+
+    window.onload = cargarClientes;
+</script>
+</body>
+</html>
