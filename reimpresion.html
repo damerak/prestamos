@@ -88,13 +88,8 @@
         .tipo-abono { color: var(--abono-color); }
         .tipo-cancelado { color: var(--cancelado-color); }
 
-        /* Estilo para el iframe invisible */
-        #iframeImpresion {
-            position: absolute;
-            width: 0;
-            height: 0;
-            border: none;
-        }
+        /* Iframe para impresión */
+        #iframeImpresion { position: absolute; width: 0; height: 0; border: none; visibility: hidden; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
     </style>
@@ -126,10 +121,10 @@
     </div>
 </div>
 
-<!-- Iframe oculto para manejar la impresión -->
 <iframe id="iframeImpresion"></iframe>
 
 <script>
+    // Configuración de Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyCarhhvBeuECGQL_6VU-huoK0hqu3q_lZ4",
         authDomain: "prestamos-ba860.firebaseapp.com",
@@ -181,30 +176,39 @@
                 else dC.appendChild(card);
             });
         } catch (error) {
-            dN.innerHTML = `<p style='color:var(--danger);'>Error: ${error.message}</p>`;
+            console.error("Error cargando historial:", error);
+            dN.innerHTML = `<p style='color:var(--danger);'>Error de conexión: ${error.message}</p>`;
         }
     }
 
     async function reiniciarHistorial() {
-        if(confirm("¿Estás seguro de limpiar el historial de hoy?")) {
-            const snapshot = await db.collection('historial_impresiones').where('fecha', '==', hoy).get();
-            const batch = db.batch();
-            snapshot.docs.forEach(doc => batch.delete(doc.ref));
-            await batch.commit();
-            renderizarHistorial();
+        if(confirm("¿Estás seguro de limpiar el historial de hoy en la base de datos?")) {
+            try {
+                const snapshot = await db.collection('historial_impresiones').where('fecha', '==', hoy).get();
+                const batch = db.batch();
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+                alert("Historial del día eliminado.");
+                renderizarHistorial();
+            } catch (error) {
+                alert("No se pudo limpiar el historial.");
+            }
         }
     }
 
     function reimprimir(item) {
         const emp = JSON.parse(localStorage.getItem('datosEmpresa')) || { nombre: "MI NEGOCIO", telefono: "000", ciudad: "CIUDAD" };
         const cf = JSON.parse(localStorage.getItem('ticketConfig')) || { 
-            width: 58, fontSize: 12, separator: "--------------------------------" 
+            width: 58, marginTop: 10, marginSide: 5, fontSize: 12, 
+            separator: "--------------------------------", bold: false 
         };
 
         const iframe = document.getElementById('iframeImpresion');
-        const doc = iframe.contentWindow.document;
+        const win = iframe.contentWindow;
+        const doc = win.document;
 
         let ticketBody = "";
+        
         if (item.tipo === 'nuevo') {
             ticketBody = `
                 <div class="bold">** REIMPRESIÓN **</div>
@@ -219,6 +223,7 @@
                 <div class="row"><span>INTERÉS:</span><span>${item.porcentaje || '20'}%</span></div>
                 <div class="row"><span>CUOTAS:</span><span>${item.cuotas || '--'}</span></div>
                 <div class="sep">${cf.separator}</div>
+                <div class="row bold"><span>ENTREGADO:</span><span>${formatear(item.monto * 0.95)}</span></div>
                 <div class="box">
                     <div class="bold">TOTAL A PAGAR</div>
                     <div class="bold" style="font-size: 1.2em;">${item.total || formatear(item.saldo)}</div>
@@ -245,39 +250,44 @@
             <html>
             <head>
                 <style>
+                    @page { margin: 0; size: auto; }
                     body { 
-                        width: 48mm; margin: 0; padding: 0; 
-                        font-family: 'monospace'; font-size: ${cf.fontSize}px; 
+                        width: ${cf.width - 10}mm; margin: 0 auto; 
+                        padding: ${cf.marginTop}px ${cf.marginSide}px; 
                         text-align: center; color: #000;
+                        font-family: 'Courier New', monospace;
+                        font-size: ${cf.fontSize}px;
+                        font-weight: ${cf.bold ? 'bold' : 'normal'};
+                        line-height: 1.2;
                     }
                     .bold { font-weight: bold; }
-                    .sep { margin: 5px 0; }
+                    .sep { margin: 5px 0; overflow: hidden; white-space: nowrap; }
                     .row { display: flex; justify-content: space-between; }
                     .box { border: 1px solid #000; padding: 5px; margin: 8px 0; }
-                    @page { margin: 0; size: auto; }
                 </style>
             </head>
             <body>
                 <div class="bold">${emp.nombre.toUpperCase()}</div>
                 <div>TEL: ${emp.telefono}</div>
+                <div>${emp.ciudad.toUpperCase()}</div>
                 <div class="sep">${cf.separator}</div>
                 ${ticketBody}
                 <div class="sep">${cf.separator}</div>
-                <div>*** Gracias ***</div>
-                <div style="height:30px">.</div>
+                <div style="margin-top:10px;">*** Gracias por su confianza ***</div>
+                <div style="height:40px">.</div>
             </body>
             </html>
         `);
         doc.close();
 
-        // Pequeña espera para asegurar que el contenido se renderice antes de llamar a la impresora
         setTimeout(() => {
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
+            win.focus();
+            win.print();
         }, 500);
     }
 
     function getClase(t) { return t === 'nuevo' ? 'tipo-nuevo' : (t === 'abono' ? 'tipo-abono' : 'tipo-cancelado'); }
+    
     function formatear(n) { 
         if(!n) return "$0";
         let valor = typeof n === 'string' ? parseFloat(n.replace(/[^0-9.-]+/g,"")) : n;
