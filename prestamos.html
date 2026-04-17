@@ -50,8 +50,12 @@
         .dropdown-content button { width: 100%; padding: 12px 15px; background: none; border: none; color: white; text-align: left; cursor: pointer; font-size: 0.85rem; }
         .dropdown-content button:hover { background-color: var(--accent-color); }
         .btn-del { color: var(--danger) !important; border-top: 1px solid var(--border-color) !important; }
-        .input-otro-valor { display: none; margin-top: 15px; grid-column: 1 / -1; background: var(--input-bg); padding: 12px; border-radius: 8px; align-items: center; gap: 10px; border: 1px solid var(--accent-color); }
-        .input-otro-valor input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); background: #121420; color: white; outline: none; font-size: 1rem; }
+        
+        /* CAMBIO: Se añadió justify-content para que no ocupe todo el ancho */
+        .input-otro-valor { display: none; margin-top: 15px; grid-column: 1 / -1; background: var(--input-bg); padding: 12px; border-radius: 8px; align-items: center; gap: 10px; border: 1px solid var(--accent-color); justify-content: flex-start; width: fit-content; }
+        /* CAMBIO: Se quitó flex: 1 y se puso un ancho inicial pequeño */
+        .input-otro-valor input { width: 10ch; min-width: 60px; padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); background: #121420; color: white; outline: none; font-size: 1rem; transition: width 0.1s; }
+        
         .btn-confirm { background: var(--success); color: #121420; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         
         #iframeImpresion { position: absolute; width: 0; height: 0; border: none; visibility: hidden; }
@@ -189,7 +193,7 @@
         window.manejarCheckboxes();
     }
 
-    // --- FUNCIONES GLOBALES (Asignadas a window para que funcionen con onclick) ---
+    // --- FUNCIONES GLOBALES ---
 
     window.manejarCheckboxes = function() {
         const seleccionados = document.querySelectorAll('.chk-prestamo:checked').length;
@@ -230,13 +234,8 @@
             };
 
             try {
-                // 1. Guardar historial
                 await addDoc(collection(db, "historial_impresiones"), log);
-                
-                // 2. Imprimir
                 generarRecibo(p, valorAbono, nuevoSaldo);
-
-                // 3. Actualizar base de datos
                 if (nuevoSaldo === 0) {
                     await deleteDoc(doc(db, "prestamos", id_db));
                 } else {
@@ -262,17 +261,21 @@
     
     window.mostrarOtroValor = function(id) { 
         document.querySelectorAll('.input-otro-valor').forEach(el => el.classList.remove('flex-show')); 
-        document.getElementById(`otro-box-${id}`).classList.add('flex-show'); 
+        const box = document.getElementById(`otro-box-${id}`);
+        box.classList.add('flex-show'); 
         document.getElementById(`menu-${id}`).classList.remove('show'); 
-        document.getElementById(`otro-input-${id}`).focus(); 
+        const input = document.getElementById(`otro-input-${id}`);
+        input.focus(); 
     };
 
+    // CAMBIO: La función ahora también ajusta el ancho (width) basándose en la longitud del texto
     window.aplicarMascara = function(i) { 
         let v = i.value.replace(/\D/g, ""); 
         i.value = v.replace(/\B(?=(\d{3})+(?!\d))/g, "."); 
+        // Ajuste dinámico de ancho
+        i.style.width = i.value.length > 0 ? (i.value.length + 2) + "ch" : "10ch";
     };
 
-    // --- FUNCIÓN DE IMPRESIÓN ---
     function generarRecibo(p, abono, nuevoSaldo) {
         const empresa = JSON.parse(localStorage.getItem('datosEmpresa')) || { nombre: "MI NEGOCIO", telefono: "---", ciudad: "---" };
         const cf = JSON.parse(localStorage.getItem('ticketConfig')) || { width: 58, marginTop: 10, marginSide: 5, fontSize: 12, separator: "--------------------------------" };
