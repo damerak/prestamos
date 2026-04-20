@@ -71,15 +71,21 @@
             <select id="selectCliente" class="full-width" required>
                 <option value="">Seleccionar Cliente...</option>
             </select>
+            
+            <select id="frecuencia" class="full-width">
+                <option value="diario">Crédito Diario</option>
+                <option value="semanal">Crédito Semanal</option>
+            </select>
+
             <input type="text" id="monto" placeholder="Monto (Ej: 600.000)" required>
             <input type="number" id="porcentaje" placeholder="%" value="20" required>
             <input type="number" id="cuotas" class="full-width" placeholder="Número de cuotas" required>
         </div>
         <div class="summary-box">
             <div class="summary-line"><span>Fecha Inicio:</span><span id="txtFecha">-</span></div>
-            <div class="summary-line"><span>Bono Rifa (5%):</span><span id="txtBono">$0</span></div>
+            <div class="summary-line"><span>Bono Rifa:</span><span id="txtBono">$0</span></div>
             <div class="summary-line"><span>ENTREGADO AL CLIENTE:</span><span id="txtEntregado" class="entregado-val">$0</span></div>
-            <div class="summary-line"><span>Valor Cuota:</span><span id="txtCuota">$0</span></div>
+            <div class="summary-line"><span id="lblValorCuota">Valor Cuota:</span><span id="txtCuota">$0</span></div>
             <div class="total-row">
                 <span class="total-label">TOTAL A PAGAR:</span>
                 <span class="total-amount" id="txtTotal">$0</span>
@@ -89,7 +95,6 @@
     </form>
 </div>
 
-<!-- El iframe que procesa la impresión de forma estable -->
 <iframe id="iframeImpresion"></iframe>
 
 <script>
@@ -107,6 +112,7 @@
 
     const form = document.getElementById('prestamoForm');
     const selectCliente = document.getElementById('selectCliente');
+    const frecuencia = document.getElementById('frecuencia');
     const inputMonto = document.getElementById('monto');
     const inputPorcentaje = document.getElementById('porcentaje');
     const inputCuotas = document.getElementById('cuotas');
@@ -116,31 +122,73 @@
     const txtCuota = document.getElementById('txtCuota');
     const txtTotal = document.getElementById('txtTotal');
     const btnGuardar = document.getElementById('btnGuardar');
+    const lblValorCuota = document.getElementById('lblValorCuota');
+
+    let clientesData = []; 
 
     async function cargarClientes() {
         try {
             const snapshot = await db.collection('clientes').get();
-            selectCliente.innerHTML = '<option value="">Seleccionar Cliente...</option>';
+            clientesData = [];
             snapshot.forEach(doc => {
                 let c = doc.data();
+                clientesData.push(c);
+            });
+
+            // --- ORGANIZAR DE LA A A LA Z ---
+            clientesData.sort((a, b) => a.nombres.localeCompare(b.nombres));
+
+            selectCliente.innerHTML = '<option value="">Seleccionar Cliente...</option>';
+            clientesData.forEach(c => {
                 let option = document.createElement('option');
-                option.value = c.nombres; option.textContent = c.nombres;
+                option.value = c.nombres; 
+                option.textContent = c.nombres;
                 selectCliente.appendChild(option);
             });
+
         } catch (error) {
             console.error("Error al cargar clientes:", error);
         }
         txtFecha.textContent = new Date().toLocaleDateString();
     }
 
+    selectCliente.addEventListener('change', () => {
+        const clienteSeleccionado = clientesData.find(c => c.nombres === selectCliente.value);
+        if (clienteSeleccionado && clienteSeleccionado.nota && clienteSeleccionado.nota.trim() !== "") {
+            alert("⚠️ NOTA IMPORTANTE DEL CLIENTE:\n\n" + clienteSeleccionado.nota);
+        }
+    });
+
+    frecuencia.addEventListener('change', () => {
+        if (frecuencia.value === 'semanal') {
+            inputCuotas.placeholder = "Número de semanas";
+            lblValorCuota.textContent = "Valor Semanal:";
+        } else {
+            inputCuotas.placeholder = "Número de cuotas";
+            lblValorCuota.textContent = "Valor Cuota:";
+        }
+        calcular();
+    });
+
     function calcular() {
         let monto = parseFloat(inputMonto.value.replace(/\./g, "")) || 0;
         let porc = parseFloat(inputPorcentaje.value) || 0;
-        let cuotas = parseInt(inputCuotas.value) || 0;
+        let numPlazos = parseInt(inputCuotas.value) || 0;
+        
         let total = monto + (monto * (porc / 100));
-        let valorCuota = cuotas > 0 ? (total / cuotas) : 0;
-        txtBono.textContent = formatearCOP(monto * 0.05);
-        txtEntregado.textContent = formatearCOP(monto * 0.95);
+        let valorCuota = numPlazos > 0 ? (total / numPlazos) : 0;
+        
+        let bonoRifa = 0;
+        if (frecuencia.value === 'diario') {
+            bonoRifa = valorCuota;
+        } else {
+            bonoRifa = monto * 0.05;
+        }
+
+        let entregado = monto - bonoRifa;
+
+        txtBono.textContent = formatearCOP(bonoRifa);
+        txtEntregado.textContent = formatearCOP(entregado);
         txtCuota.textContent = formatearCOP(valorCuota);
         txtTotal.textContent = formatearCOP(total);
     }
@@ -149,6 +197,7 @@
         e.target.value = e.target.value.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
         calcular();
     });
+    
     [inputPorcentaje, inputCuotas].forEach(el => el.addEventListener('input', calcular));
 
     function formatearCOP(n) { return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n); }
@@ -159,6 +208,10 @@
             width: 58, marginTop: 10, marginSide: 5, fontSize: 12, 
             separator: "--------------------------------", bold: false 
         };
+
+        const tipoPlazo = frecuencia.value === 'semanal' ? "SEMANAS" : "CUOTAS";
+        const bonoValor = parseFloat(txtBono.textContent.replace(/[^0-9]/g,""));
+        const entregadoValor = datos.monto - bonoValor;
 
         const iframe = document.getElementById('iframeImpresion');
         const win = iframe.contentWindow;
@@ -189,7 +242,7 @@
                 <div>TEL: ${empresa.telefono}</div>
                 <div>${empresa.ciudad.toUpperCase()}</div>
                 <div class="sep">${cf.separator}</div>
-                <div class="bold">NUEVO PRÉSTAMO</div>
+                <div class="bold">NUEVO PRÉSTAMO (${frecuencia.value.toUpperCase()})</div>
                 <div class="sep">${cf.separator}</div>
                 <div style="text-align:left">
                     FECHA: ${new Date().toLocaleDateString()}<br>
@@ -198,14 +251,15 @@
                 <div class="sep">${cf.separator}</div>
                 <div class="row"><span>MONTO:</span><span>${formatearCOP(datos.monto)}</span></div>
                 <div class="row"><span>INTERÉS:</span><span>${datos.porcentaje}%</span></div>
-                <div class="row"><span>CUOTAS:</span><span>${datos.cuotas}</span></div>
+                <div class="row"><span>${tipoPlazo}:</span><span>${datos.cuotas}</span></div>
+                <div class="row"><span>BONO RIFA:</span><span>${formatearCOP(bonoValor)}</span></div>
                 <div class="sep">${cf.separator}</div>
-                <div class="row bold"><span>ENTREGADO:</span><span>${formatearCOP(datos.monto * 0.95)}</span></div>
+                <div class="row bold"><span>ENTREGADO:</span><span>${formatearCOP(entregadoValor)}</span></div>
                 <div class="box">
                     <div class="bold">TOTAL A PAGAR</div>
                     <div class="bold" style="font-size: 1.2em;">${datos.total}</div>
                 </div>
-                <div class="bold">VALOR CUOTA: ${txtCuota.textContent}</div>
+                <div class="bold">VALOR ${tipoPlazo.slice(0,-1)}: ${txtCuota.textContent}</div>
                 <div class="sep">${cf.separator}</div>
                 <div style="margin-top:10px;">*** Gracias por su confianza ***</div>
                 <div style="height:50px">.</div>
@@ -232,6 +286,7 @@
             monto: parseFloat(montoReal), 
             porcentaje: inputPorcentaje.value, 
             cuotas: inputCuotas.value, 
+            frecuencia: frecuencia.value,
             total: txtTotal.textContent, 
             saldo: parseFloat(txtTotal.textContent.replace(/[^0-9]/g,"")), 
             fecha: new Date().toLocaleDateString()
@@ -240,19 +295,18 @@
         const log = { ...prestamo, tipo: 'nuevo', hora: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) };
 
         try {
-            // Guardar en Firebase
             await db.collection('prestamos').doc(prestamo.id).set(prestamo);
             await db.collection('historial_impresiones').add(log);
 
-            // Imprimir
             imprimirNuevoPrestamo(prestamo);
 
-            // LIMPIAR CAMPOS SIN SALIR DE LA PÁGINA
             form.reset();
             txtBono.textContent = "$0";
             txtEntregado.textContent = "$0";
             txtCuota.textContent = "$0";
             txtTotal.textContent = "$0";
+            lblValorCuota.textContent = "Valor Cuota:";
+            inputCuotas.placeholder = "Número de cuotas";
             
             alert("✅ Préstamo guardado e impreso con éxito.");
 
