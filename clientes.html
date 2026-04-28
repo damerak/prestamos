@@ -23,13 +23,11 @@
         body { background-color: var(--bg-color); color: var(--text-main); padding: 40px 20px; }
         .container { width: 100%; max-width: 1000px; margin: 0 auto; animation: fadeIn 0.6s ease; }
         
-        /* BOTÓN VOLVER */
         .btn-top-inicio {
             display: inline-flex; align-items: center; background: var(--accent); color: white;
             padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;
             margin-bottom: 30px; transition: 0.3s;
         }
-        .btn-top-inicio:hover { opacity: 0.8; transform: translateX(-5px); }
 
         header { display: flex; flex-direction: column; gap: 15px; margin-bottom: 40px; }
         h1 { font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); }
@@ -40,23 +38,21 @@
         }
         .search-box input { background: transparent; border: none; color: white; padding: 10px; width: 100%; outline: none; font-size: 1rem; }
         
-        /* FILTROS CHECKBOX */
         .filter-controls { display: flex; gap: 20px; margin-top: 5px; padding-left: 5px; flex-wrap: wrap; }
         .filter-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; color: var(--text-dim); transition: 0.3s; }
         .filter-label:hover { color: var(--accent); }
-        .filter-label input { accent-color: var(--accent); width: 16px; height: 16px; }
+        .filter-label input { accent-color: var(--accent); width: 18px; height: 18px; cursor: pointer; }
 
         /* GRUPOS DE BARRIO */
-        .barrio-group { margin-bottom: 15px; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
+        .barrio-group { margin-bottom: 15px; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); background: #0e101a; }
         .barrio-header {
-            background: var(--card-bg); padding: 15px 20px; display: flex; justify-content: space-between;
+            background: var(--card-bg); padding: 18px 20px; display: flex; justify-content: space-between;
             align-items: center; cursor: pointer; transition: 0.3s;
         }
         .barrio-header:hover { background: var(--input-bg); }
-        .barrio-header h3 { font-size: 0.9rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 10px; }
-        .barrio-content { display: none; padding: 15px; background: #0e101a; flex-direction: column; gap: 10px; }
+        .barrio-header h3 { font-size: 0.9rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 10px; margin: 0; }
+        .barrio-content { display: none; padding: 15px; flex-direction: column; gap: 10px; }
         .barrio-group.open .barrio-content { display: flex; }
-        .barrio-group.open .barrio-header { border-bottom: 1px solid var(--border); }
         .barrio-header .arrow { transition: 0.3s; color: var(--text-dim); }
         .barrio-group.open .arrow { transform: rotate(180deg); color: var(--accent); }
 
@@ -67,7 +63,7 @@
             border: 1px solid var(--border); transition: 0.3s ease; cursor: pointer;
         }
         .client-card:hover { border-color: var(--accent); }
-        .client-card.active { border-color: var(--accent); background: #1b1f2d; }
+        .client-card.active { border-color: var(--accent); }
 
         .client-header { display: flex; justify-content: space-between; align-items: center; }
         .client-header h2 { font-size: 1rem; color: var(--text-main); display: flex; align-items: center; gap: 12px; margin: 0; font-weight: 400; }
@@ -86,7 +82,6 @@
         .action-btn { display: flex; flex-direction: column; align-items: center; background: none; border: none; cursor: pointer; color: var(--text-dim); transition: 0.3s; min-width: 55px; }
         .action-btn span.material-icons-round { background: var(--input-bg); padding: 10px; border-radius: 10px; font-size: 20px; margin-bottom: 5px; }
         .action-btn small { font-size: 0.6rem; text-transform: uppercase; font-weight: 600; }
-        .action-btn:hover { color: white; }
 
         .edit-fields, .note-fields { display: none; margin-top: 20px; padding: 15px; background: #121420; border-radius: 10px; border: 1px solid var(--border); }
         input.edit-input { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 10px; font-size: 0.9rem; outline: none; }
@@ -107,14 +102,14 @@
         <h1>Listado de Clientes</h1>
         <div class="search-box">
             <span class="material-icons-round">search</span>
-            <input type="text" id="buscador" placeholder="Buscar por nombre, cédula o barrio..." oninput="renderizarClientes()">
+            <input type="text" id="buscador" placeholder="Buscar por nombre, cédula o barrio...">
         </div>
         <div class="filter-controls">
             <label class="filter-label">
-                <input type="checkbox" id="checkBarrio" onchange="renderizarClientes()"> Agrupar por Barrio
+                <input type="checkbox" id="checkBarrio"> Agrupar por Barrio
             </label>
             <label class="filter-label">
-                <input type="checkbox" id="checkNotas" onchange="renderizarClientes()"> Ver solo con Notas
+                <input type="checkbox" id="checkNotas"> Ver solo con Notas
             </label>
         </div>
     </header>
@@ -141,33 +136,42 @@
     let clientes = [];
 
     async function obtenerClientes() {
-        const querySnapshot = await getDocs(collection(db, "clientes"));
-        clientes = [];
-        querySnapshot.forEach((doc) => {
-            clientes.push({ id: doc.id, ...doc.data() });
-        });
-        renderizarClientes();
+        try {
+            const querySnapshot = await getDocs(collection(db, "clientes"));
+            clientes = [];
+            querySnapshot.forEach((doc) => {
+                clientes.push({ id: doc.id, ...doc.data() });
+            });
+            renderizarClientes();
+        } catch (error) {
+            console.error("Error cargando Firebase:", error);
+        }
     }
 
     function renderizarClientes() {
         const contenedor = document.getElementById('clientContainer');
-        const filtro = document.getElementById('buscador').value.toLowerCase();
+        const filtroTxt = document.getElementById('buscador').value.toLowerCase();
         const agruparBarrio = document.getElementById('checkBarrio').checked;
         const soloConNotas = document.getElementById('checkNotas').checked;
         
         contenedor.innerHTML = "";
 
-        // Filtrar
+        // 1. Filtrado
         let filtrados = clientes.filter(c => {
-            const matchTxt = c.nombres.toLowerCase().includes(filtro) || 
-                             c.cedula.toString().includes(filtro) ||
-                             (c.barrio && c.barrio.toLowerCase().includes(filtro));
+            const matchTxt = (c.nombres || "").toLowerCase().includes(filtroTxt) || 
+                             (c.cedula || "").toString().includes(filtroTxt) ||
+                             (c.barrio || "").toLowerCase().includes(filtroTxt);
+            
             const matchNota = soloConNotas ? (c.nota && c.nota.trim() !== "") : true;
+            
             return matchTxt && matchNota;
         });
 
+        // 2. Ordenar alfabéticamente siempre
+        filtrados.sort((a, b) => (a.nombres || "").localeCompare(b.nombres || ""));
+
         if (agruparBarrio) {
-            // Lógica de agrupación
+            // Agrupar por barrio
             const grupos = filtrados.reduce((acc, c) => {
                 const b = (c.barrio || "SIN BARRIO").toUpperCase();
                 if (!acc[b]) acc[b] = [];
@@ -176,13 +180,15 @@
             }, {});
 
             Object.keys(grupos).sort().forEach(barrioNombre => {
-                const barrioId = btoa(barrioNombre).replace(/=/g, ""); 
+                // Crear un ID seguro para el div (reemplazando espacios y raros)
+                const barrioSafeId = "barrio-" + barrioNombre.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+                
                 const section = document.createElement('div');
                 section.className = 'barrio-group';
-                section.id = `group-${barrioId}`;
+                section.id = barrioSafeId;
                 
                 section.innerHTML = `
-                    <div class="barrio-header" onclick="document.getElementById('group-${barrioId}').classList.toggle('open')">
+                    <div class="barrio-header" onclick="document.getElementById('${barrioSafeId}').classList.toggle('open')">
                         <h3><span class="material-icons-round">location_on</span> ${barrioNombre}</h3>
                         <div style="display:flex; align-items:center; gap:10px">
                             <span style="font-size:0.7rem; opacity:0.5">${grupos[barrioNombre].length}</span>
@@ -193,16 +199,16 @@
                 `;
 
                 const contentDiv = section.querySelector('.barrio-content');
-                grupos[barrioNombre].sort((a,b) => a.nombres.localeCompare(b.nombres)).forEach(c => {
+                grupos[barrioNombre].forEach(c => {
                     contentDiv.appendChild(crearCard(c));
                 });
                 contenedor.appendChild(section);
             });
         } else {
-            // Lista simple A-Z
+            // Lista simple
             const listDiv = document.createElement('div');
             listDiv.className = 'client-list';
-            filtrados.sort((a,b) => a.nombres.localeCompare(b.nombres)).forEach(c => {
+            filtrados.forEach(c => {
                 listDiv.appendChild(crearCard(c));
             });
             contenedor.appendChild(listDiv);
@@ -230,7 +236,7 @@
                     <div class="detail-item"><label>Cédula</label><span>${c.cedula}</span></div>
                     <div class="detail-item"><label>Celular</label><span>${c.celular}</span></div>
                     <div class="detail-item"><label>Barrio</label><span>${c.barrio || 'N/A'}</span></div>
-                    <div class="detail-item"><label>Dirección</label><span>${c.direccion || 'N/A'}</span></div>
+                    <div class="detail-item" style="grid-column: span 2"><label>Dirección</label><span>${c.direccion || 'N/A'}</span></div>
                 </div>
 
                 <div class="actions">
@@ -245,7 +251,7 @@
                     <input type="text" class="edit-input" id="in-cel-${c.id}" value="${c.celular}">
                     <input type="text" class="edit-input" id="in-bar-${c.id}" value="${c.barrio || ''}" placeholder="Barrio">
                     <input type="text" class="edit-input" id="in-dir-${c.id}" value="${c.direccion || ''}" placeholder="Dirección">
-                    <button class="btn-save" onclick="guardarEdicion('${c.id}')">ACTUALIZAR</button>
+                    <button class="btn-save" onclick="guardarEdicion('${c.id}')">ACTUALIZAR DATOS</button>
                 </div>
 
                 <div class="note-fields" id="note-${c.id}">
@@ -257,7 +263,7 @@
         return card;
     }
 
-    // GLOBALES
+    // --- FUNCIONES GLOBALES ---
     window.toggleSub = (id) => {
         const el = document.getElementById(id);
         const isVisible = el.style.display === 'block';
@@ -274,26 +280,31 @@
                 direccion: document.getElementById(`in-dir-${id}`).value
             });
             obtenerClientes();
-        } catch (e) { console.error(e); }
+        } catch (e) { alert("Error al actualizar"); }
     }
 
     window.guardarNota = async (id) => {
         try {
             await updateDoc(doc(db, "clientes", id), { nota: document.getElementById(`in-note-${id}`).value });
             obtenerClientes();
-        } catch (e) { console.error(e); }
+        } catch (e) { alert("Error al guardar nota"); }
     }
 
     window.eliminarCliente = async (id) => {
-        if(confirm("¿Eliminar cliente?")) {
+        if(confirm("¿Eliminar cliente permanentemente?")) {
             try {
                 await deleteDoc(doc(db, "clientes", id));
                 obtenerClientes();
-            } catch (e) { console.error(e); }
+            } catch (e) { alert("Error al eliminar"); }
         }
     }
 
     window.enviarWA = (tel) => window.open(`https://wa.me/57${tel.replace(/\D/g, "")}`, '_blank');
+
+    // Listeners para los inputs y checks
+    document.getElementById('buscador').addEventListener('input', renderizarClientes);
+    document.getElementById('checkBarrio').addEventListener('change', renderizarClientes);
+    document.getElementById('checkNotas').addEventListener('change', renderizarClientes);
 
     window.onload = obtenerClientes;
 </script>
